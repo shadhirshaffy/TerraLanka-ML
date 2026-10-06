@@ -1,0 +1,18 @@
+.venv/
+.venv-1/
+__pycache__/
+*.py[cod]
+
+# Generated datasets and model artifacts
+raw_ikman_lands.csv
+data/*.csv
+models/*.pkl
+
+# Local notebooks and editor files
+.ipynb_checkpoints/
+.vscode/
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
