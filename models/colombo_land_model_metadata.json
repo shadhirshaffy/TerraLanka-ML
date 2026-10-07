@@ -1,0 +1,66 @@
+{
+  "trained_at_utc": "2026-10-07T17:19:50.700252+00:00",
+  "model_path": "C:\\Users\\mssmo\\Documents\\ML PREC\\models\\colombo_land_model.pkl",
+  "model_name": "gradient_boosting",
+  "training_rows": 184,
+  "city_count": 30,
+  "target": "price_per_perch_lkr",
+  "target_transform": "log1p",
+  "numeric_features": [
+    "land_extent_perches",
+    "log_land_extent_perches",
+    "distance_to_colombo_km",
+    "kw_commercial",
+    "kw_residential",
+    "kw_main_road",
+    "kw_bare_land",
+    "kw_lake",
+    "kw_corner",
+    "kw_approved",
+    "kw_prime"
+  ],
+  "categorical_features": [
+    "district",
+    "city",
+    "land_type",
+    "price_basis"
+  ],
+  "text_feature": "title_clean",
+  "feature_columns": [
+    "land_extent_perches",
+    "log_land_extent_perches",
+    "distance_to_colombo_km",
+    "kw_commercial",
+    "kw_residential",
+    "kw_main_road",
+    "kw_bare_land",
+    "kw_lake",
+    "kw_corner",
+    "kw_approved",
+    "kw_prime",
+    "district",
+    "city",
+    "land_type",
+    "price_basis",
+    "title_clean"
+  ],
+  "metrics": {
+    "mae": 1532881.127432877,
+    "rmse": 2994333.8108425513,
+    "mape": 50.37141041027117,
+    "r2": 0.376185785032206
+  },
+  "baseline_metrics": {
+    "mae": 1607944.318384893,
+    "rmse": 3412965.162739502,
+    "mape": 61.70956422458352,
+    "r2": 0.18956432712925864
+  },
+  "beats_city_median_baseline_mae": true,
+  "model_candidates": [
+    "ridge",
+    "random_forest",
+    "gradient_boosting",
+    "hist_gradient_boosting"
+  ]
+}

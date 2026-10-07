@@ -1,6 +1,9 @@
 beautifulsoup4
+fastapi
 joblib
 numpy
 pandas
+pytest
 requests
 scikit-learn
+uvicorn
