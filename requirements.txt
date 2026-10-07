@@ -3,6 +3,7 @@ fastapi
 joblib
 numpy
 pandas
+playwright
 pytest
 requests
 scikit-learn

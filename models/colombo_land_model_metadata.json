@@ -1,8 +1,8 @@
 {
-  "trained_at_utc": "2026-10-07T17:19:50.700252+00:00",
+  "trained_at_utc": "2026-10-07T20:50:49.322695+00:00",
   "model_path": "C:\\Users\\mssmo\\Documents\\ML PREC\\models\\colombo_land_model.pkl",
-  "model_name": "gradient_boosting",
-  "training_rows": 184,
+  "model_name": "ridge",
+  "training_rows": 240,
   "city_count": 30,
   "target": "price_per_perch_lkr",
   "target_transform": "log1p",
@@ -45,16 +45,16 @@
     "title_clean"
   ],
   "metrics": {
-    "mae": 1532881.127432877,
-    "rmse": 2994333.8108425513,
-    "mape": 50.37141041027117,
-    "r2": 0.376185785032206
+    "mae": 737099.5973559469,
+    "rmse": 1141442.1262868685,
+    "mape": 33.47422607773669,
+    "r2": 0.6701523328920775
   },
   "baseline_metrics": {
-    "mae": 1607944.318384893,
-    "rmse": 3412965.162739502,
-    "mape": 61.70956422458352,
-    "r2": 0.18956432712925864
+    "mae": 1070210.3625541127,
+    "rmse": 1504081.4178072067,
+    "mape": 100.5821527180886,
+    "r2": 0.42727213279965826
   },
   "beats_city_median_baseline_mae": true,
   "model_candidates": [

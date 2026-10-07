@@ -1,3 +1,4 @@
+import argparse
 import re
 from pathlib import Path
 
@@ -7,6 +8,11 @@ import pandas as pd
 
 PROJECT_DIR = Path(__file__).resolve().parent
 RAW_PATH = PROJECT_DIR / "raw_ikman_lands.csv"
+DEFAULT_RAW_PATHS = [
+    PROJECT_DIR / "raw_ikman_lands.csv",
+    PROJECT_DIR / "data" / "raw_primelands_colombo_lands.csv",
+    PROJECT_DIR / "data" / "raw_lankapropertyweb_colombo_lands.csv",
+]
 CLEAN_PATH = PROJECT_DIR / "data" / "clean_lands.csv"
 
 COLOMBO_CENTER_LAT = 6.9271
@@ -50,6 +56,8 @@ KEYWORD_PATTERNS = {
     "kw_prime": r"\bprime\b|\bhighly\s+residential\b",
 }
 
+TEXT_COLUMNS = ["title", "location", "extent", "description", "raw_text"]
+
 
 def normalize_text(value):
     if not isinstance(value, str):
@@ -57,8 +65,8 @@ def normalize_text(value):
     return re.sub(r"\s+", " ", value.strip().lower())
 
 
-def infer_land_type(title, location):
-    text = f"{normalize_text(title)} {normalize_text(location)}"
+def infer_land_type(*values):
+    text = normalize_text(" ".join(str(value) for value in values if isinstance(value, str)))
     if re.search(r"\bcommercial\b|\bshop\b|\boffice\b|\bbusiness\b", text):
         return "Commercial"
     if re.search(r"\bindustrial\b|\bfactory\b|\bwarehouse\b", text):
@@ -96,18 +104,32 @@ def parse_land_extent(*values):
     if not text:
         return np.nan
 
-    total_perches = 0.0
-    found = False
+    acre_values = [
+        float(match.group(1))
+        for match in re.finditer(r"(\d+(?:\.\d+)?)\s*(?:acre|acres|acr|ac\b)", text)
+    ]
+    perch_values = [
+        float(match.group(1))
+        for match in re.finditer(r"(\d+(?:\.\d+)?)\s*(?:perch|perches|p\b)", text)
+    ]
 
-    for match in re.finditer(r"(\d+(?:\.\d+)?)\s*(?:acre|acres|acr|ac\b)", text):
-        total_perches += float(match.group(1)) * 160.0
-        found = True
+    if acre_values:
+        total_perches = acre_values[0] * 160.0
+        if perch_values:
+            total_perches += perch_values[0]
+        return total_perches if total_perches > 0 else np.nan
 
-    for match in re.finditer(r"(\d+(?:\.\d+)?)\s*(?:perch|perches|p\b)", text):
-        total_perches += float(match.group(1))
-        found = True
+    if perch_values:
+        return perch_values[0] if perch_values[0] > 0 else np.nan
+    return np.nan
 
-    return total_perches if found and total_perches > 0 else np.nan
+
+def combined_text(row, columns=TEXT_COLUMNS):
+    return " ".join(
+        str(row[column])
+        for column in columns
+        if column in row.index and isinstance(row[column], str)
+    )
 
 
 def extract_district(location):
@@ -117,10 +139,11 @@ def extract_district(location):
     return text.split(",", 1)[0].strip() or "unknown"
 
 
-def extract_city(title, location):
+def extract_city(title, location, *extra_values):
     title_text = normalize_text(title)
     location_text = normalize_text(location)
-    combined = f"{title_text} {location_text}"
+    extra_text = normalize_text(" ".join(str(value) for value in extra_values if isinstance(value, str)))
+    combined = f"{title_text} {location_text} {extra_text}"
 
     for city in sorted(CITY_COORDINATES, key=len, reverse=True):
         if re.search(rf"\b{re.escape(city)}\b", combined):
@@ -152,15 +175,49 @@ def estimate_distance_to_colombo(city):
 
 
 def add_keyword_features(df):
-    text = (
-        df["title"].fillna("").astype(str)
-        + " "
-        + df["location"].fillna("").astype(str)
-    ).str.lower()
+    text_parts = []
+    for column in TEXT_COLUMNS:
+        if column in df.columns:
+            text_parts.append(df[column].fillna("").astype(str))
+
+    text = text_parts[0]
+    for part in text_parts[1:]:
+        text = text + " " + part
+    text = text.str.lower()
 
     for column, pattern in KEYWORD_PATTERNS.items():
         df[column] = text.str.contains(pattern, regex=True, na=False).astype(int)
     return df
+
+
+def load_raw_dataset(input_paths):
+    frames = []
+    missing_paths = []
+
+    for input_path in input_paths:
+        path = Path(input_path)
+        if not path.exists():
+            missing_paths.append(path)
+            continue
+
+        frame = pd.read_csv(path)
+        if "source_file" not in frame.columns:
+            frame["source_file"] = str(path)
+        frames.append(frame)
+
+    if not frames:
+        formatted_paths = ", ".join(str(path) for path in input_paths)
+        raise FileNotFoundError(
+            f"No raw datasets found. Expected at least one of: {formatted_paths}. Run scrape.py first."
+        )
+
+    if missing_paths:
+        print(
+            "Skipping missing raw files: "
+            + ", ".join(str(path) for path in missing_paths)
+        )
+
+    return pd.concat(frames, ignore_index=True, sort=False)
 
 
 def compute_price_columns(df):
@@ -204,14 +261,17 @@ def compute_price_columns(df):
     return df
 
 
-def clean_dataset(input_path=RAW_PATH, output_path=CLEAN_PATH):
-    input_path = Path(input_path)
+def clean_dataset(input_path=None, output_path=CLEAN_PATH):
+    input_paths = DEFAULT_RAW_PATHS if input_path is None else input_path
+    if isinstance(input_paths, (str, Path)):
+        input_paths = [Path(input_paths)]
+    else:
+        input_paths = [Path(path) for path in input_paths]
+
     output_path = Path(output_path)
-    if not input_path.exists():
-        raise FileNotFoundError(f"Raw dataset not found at {input_path}. Run scraper.py first.")
 
     print("Loading raw dataset...")
-    df = pd.read_csv(input_path)
+    df = load_raw_dataset(input_paths)
     initial_count = len(df)
 
     expected_columns = {"title", "raw_price", "location"}
@@ -226,12 +286,18 @@ def clean_dataset(input_path=RAW_PATH, output_path=CLEAN_PATH):
 
     df["title_clean"] = df["title"].fillna("").astype(str).map(normalize_text)
     df["district"] = df["location"].map(extract_district).str.title()
-    df["city"] = [extract_city(title, location) for title, location in zip(df["title"], df["location"])]
+    row_text = df.apply(combined_text, axis=1)
+    df["city"] = [
+        extract_city(title, location, extra_text)
+        for title, location, extra_text in zip(df["title"], df["location"], row_text)
+    ]
     df["land_type"] = [
-        infer_land_type(title, location) for title, location in zip(df["title"], df["location"])
+        infer_land_type(title, location, extra_text)
+        for title, location, extra_text in zip(df["title"], df["location"], row_text)
     ]
     df["land_extent_perches"] = [
-        parse_land_extent(title, location) for title, location in zip(df["title"], df["location"])
+        parse_land_extent(title, location, extra_text)
+        for title, location, extra_text in zip(df["title"], df["location"], row_text)
     ]
 
     parsed_prices = df["raw_price"].apply(parse_price)
@@ -281,4 +347,19 @@ def clean_dataset(input_path=RAW_PATH, output_path=CLEAN_PATH):
 
 
 if __name__ == "__main__":
-    clean_dataset()
+    parser = argparse.ArgumentParser(description="Clean and combine raw land listing datasets.")
+    parser.add_argument(
+        "--input",
+        type=Path,
+        action="append",
+        dest="input_paths",
+        help="Raw CSV input path. Can be supplied more than once. Defaults to all known scraper outputs.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=CLEAN_PATH,
+        help="Cleaned CSV output path.",
+    )
+    args = parser.parse_args()
+    clean_dataset(input_path=args.input_paths, output_path=args.output)

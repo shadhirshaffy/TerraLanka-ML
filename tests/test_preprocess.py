@@ -31,6 +31,10 @@ def test_parse_land_extent_acres_and_perches():
     assert parse_land_extent("1 acre 20 perches land") == 180
 
 
+def test_parse_land_extent_uses_detail_fields():
+    assert parse_land_extent("Veloria - Bokundara", "Colombo, Bokundara", "6 perches onwards") == 6
+
+
 def test_city_and_land_type_extraction():
     title = "10 Perches Residential Bare Land For Sale Maharagama"
     location = "Colombo, Land For Sale"
